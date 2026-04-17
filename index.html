@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trash and Treasure PRO</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    margin: 0;
+    background: #cceeff;
+}
+
+h1 { margin: 10px; }
+
+#topbar {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+}
+
+#game-area {
+    height: 300px;
+    margin: 10px;
+    border: 3px solid #333;
+    position: relative;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+}
+
+/* MAP */
+.taman { background-image: url('https://i.imgur.com/8Qf6R7T.jpg'); }
+.kota { background-image: url('https://i.imgur.com/2nCt3Sb.jpg'); }
+.pantai { background-image: url('https://i.imgur.com/Z6a9QxT.jpg'); }
+
+.trash {
+    width: 60px;
+    height: 60px;
+    position: absolute;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.trash:hover {
+    transform: scale(1.2);
+}
+
+.bins {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10px;
+}
+
+.bin {
+    width: 140px;
+    height: 140px;
+    border-radius: 15px;
+    line-height: 140px;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+#organik { background: green; }
+#anorganik { background: gray; }
+
+#message {
+    font-weight: bold;
+    margin: 10px;
+}
+
+button, select {
+    padding: 8px;
+    margin: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌍 Trash and Treasure PRO 🌱</h1>
+
+<div id="topbar">
+    <div>Skor: <span id="score">0</span></div>
+    <div>Waktu: <span id="time">60</span></div>
+    <div>High Score: <span id="highscore">0</span></div>
+</div>
+
+<div>
+    Map:
+    <select id="map">
+        <option value="taman">Taman</option>
+        <option value="kota">Kota</option>
+        <option value="pantai">Pantai</option>
+    </select>
+
+    <button onclick="startGame()">Mulai</button>
+</div>
+
+<div id="game-area" class="taman"></div>
+
+<div class="bins">
+    <div id="organik" class="bin">Organik</div>
+    <div id="anorganik" class="bin">Anorganik</div>
+</div>
+
+<div id="message"></div>
+
+<script>
+let score = 0;
+let time = 60;
+let speed = 1500;
+let level = 1;
+let selectedTrash = null;
+
+let highscore = localStorage.getItem("highscore") || 0;
+document.getElementById("highscore").textContent = highscore;
+
+const trashItems = [
+    { img: "https://cdn-icons-png.flaticon.com/512/590/590685.png", type: "organik", info: "Sisa makanan mudah terurai" },
+    { img: "https://cdn-icons-png.flaticon.com/512/415/415733.png", type: "organik", info: "Daun termasuk organik" },
+    { img: "https://cdn-icons-png.flaticon.com/512/1046/1046784.png", type: "anorganik", info: "Botol plastik sulit terurai" },
+    { img: "https://cdn-icons-png.flaticon.com/512/679/679720.png", type: "anorganik", info: "Kaleng tidak mudah hancur" }
+];
+
+let gameInterval, timerInterval;
+
+function startGame() {
+    score = 0;
+    time = 60;
+    speed = 1500;
+    level = 1;
+
+    document.getElementById("score").textContent = score;
+    document.getElementById("time").textContent = time;
+    document.getElementById("game-area").innerHTML = "";
+    document.getElementById("message").textContent = "";
+
+    // map
+    let map = document.getElementById("map").value;
+    let area = document.getElementById("game-area");
+    area.className = "";
+    area.classList.add(map);
+
+    clearInterval(gameInterval);
+    clearInterval(timerInterval);
+
+    gameInterval = setInterval(createTrash, speed);
+    timerInterval = setInterval(updateTime, 1000);
+}
+
+function updateTime() {
+    time--;
+    document.getElementById("time").textContent = time;
+
+    if (time % 10 === 0 && speed > 500) {
+        speed -= 100;
+        clearInterval(gameInterval);
+        gameInterval = setInterval(createTrash, speed);
+        level++;
+    }
+
+    if (time <= 0) endGame();
+}
+
+function endGame() {
+    clearInterval(gameInterval);
+    clearInterval(timerInterval);
+
+    if (score > highscore) {
+        localStorage.setItem("highscore", score);
+    }
+
+    alert("Game selesai! Skor: " + score);
+    location.reload();
+}
+
+function createTrash() {
+    const item = trashItems[Math.floor(Math.random() * trashItems.length)];
+    const img = document.createElement("img");
+
+    img.src = item.img;
+    img.className = "trash";
+    img.dataset.type = item.type;
+    img.dataset.info = item.info;
+
+    img.style.left = Math.random() * 90 + "%";
+    img.style.top = Math.random() * 80 + "%";
+
+    img.onclick = () => selectedTrash = img;
+
+    img.draggable = true;
+    img.ondragstart = (e) => {
+        e.dataTransfer.setData("type", item.type);
+        e.dataTransfer.setData("info", item.info);
+        img.remove();
+    };
+
+    document.getElementById("game-area").appendChild(img);
+}
+
+document.querySelectorAll(".bin").forEach(bin => {
+
+    bin.ondragover = e => e.preventDefault();
+
+    bin.ondrop = e => {
+        e.preventDefault();
+        check(e.dataTransfer.getData("type"), e.dataTransfer.getData("info"), bin.id);
+    };
+
+    bin.onclick = () => {
+        if (selectedTrash) {
+            check(selectedTrash.dataset.type, selectedTrash.dataset.info, bin.id);
+            selectedTrash.remove();
+            selectedTrash = null;
+        }
+    };
+
+});
+
+function check(type, info, bin) {
+    if (type === bin) {
+        score += 10;
+        showMessage("✅ Benar! " + info, "green");
+    } else {
+        score -= 5;
+        showMessage("❌ Salah! " + info, "red");
+    }
+
+    document.getElementById("score").textContent = score;
+}
+
+function showMessage(text, color) {
+    let msg = document.getElementById("message");
+    msg.textContent = text;
+    msg.style.color = color;
+}
+</script>
+
+</body>
+  </html>
